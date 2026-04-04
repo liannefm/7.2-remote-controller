@@ -11,6 +11,8 @@
 <body>
     <img src="assets/img/sun.png" id="sun" alt="sun">
 
+    <div id="apple-timer" class="timer hidden">Appels vallen: 20s</div>
+
     <div id="tamagotchi-moodchecker" class="card">
         <div class="face">
             <div class="eye left"></div>
@@ -51,6 +53,8 @@
     </div>
 
     <img src="assets/img/rabbit-sittingright.png" alt="rabbit sitting" id="rabbit-sitting">
+
+    <img src="assets/img/tree.png" alt="tree" id="tree">
 
     <img src="assets/img/grass.png" id="grass" alt="grass">
 
@@ -127,6 +131,128 @@
         socket.on('increase-bar', (bar) => {
             increaseBar(bar);
         });
+
+        socket.on('increase-all', () => {
+            console.log('Increasing all bars');
+            Object.keys(fills).forEach(key => {
+                const fill = fills[key];
+                let current = parseInt(fill.style.width);
+                if (current < 100) {
+                    fill.style.width = Math.min(100, current + 5) + '%';
+                }
+            });
+            saveBars();
+            updateMood();
+        });
+
+        socket.on('fall-apples', () => {
+            console.log('Apples falling!');
+            startAppleFall();
+        });
+
+        let appleTimerInterval = null;
+
+        function showAppleTimer(seconds) {
+            const timer = document.getElementById('apple-timer');
+            timer.textContent = `Appels vallen: ${seconds}s`;
+            timer.classList.remove('hidden');
+        }
+
+        function hideAppleTimer() {
+            const timer = document.getElementById('apple-timer');
+            timer.classList.add('hidden');
+            if (appleTimerInterval) {
+                clearInterval(appleTimerInterval);
+                appleTimerInterval = null;
+            }
+        }
+
+        function createFallingApple() {
+            console.log('Creating falling apple');
+            const apple = document.createElement('img');
+            apple.src = 'assets/img/apple.png';
+            apple.style.position = 'fixed';
+            apple.style.width = '40px';
+            apple.style.height = '40px';
+            apple.style.cursor = 'pointer';
+            apple.style.userSelect = 'none';
+            apple.style.zIndex = '10';
+            
+            const treeElement = document.getElementById('tree');
+            console.log('Tree element:', treeElement);
+            
+            if (!treeElement) {
+                console.error('Tree element not found!');
+                return;
+            }
+            
+            const treeRect = treeElement.getBoundingClientRect();
+            console.log('Tree rect:', treeRect);
+            
+            const startX = treeRect.left + treeRect.width * 0.45 + Math.random() * (treeRect.width * 0.2) - 20;
+            const startY = treeRect.top + treeRect.height * 0.18;
+            
+            apple.style.left = startX + 'px';
+            apple.style.top = startY + 'px';
+            
+            console.log('Apple position:', apple.style.left, apple.style.top);
+            document.body.appendChild(apple);
+            
+            apple.addEventListener('click', (e) => {
+                e.stopPropagation();
+                console.log('Apple clicked!');
+                apple.remove();
+                increaseBar('food');
+            });
+            
+            let currentY = startY;
+            const speed = 3;
+            const maxY = window.innerHeight - 150;
+            
+            const fallInterval = setInterval(() => {
+                currentY += speed;
+                apple.style.top = currentY + 'px';
+                
+                if (currentY > maxY) {
+                    clearInterval(fallInterval);
+                    if (apple.parentNode) apple.remove();
+                }
+            }, 30);
+            
+            setTimeout(() => {
+                clearInterval(fallInterval);
+                if (apple.parentNode) apple.remove();
+            }, 20000);
+        }
+        
+        function startAppleFall() {
+            console.log('Starting apple fall');
+            const appleCount = 5;
+            const interval = 4000;
+            let countdown = 20;
+            showAppleTimer(countdown);
+            if (appleTimerInterval) {
+                clearInterval(appleTimerInterval);
+            }
+            appleTimerInterval = setInterval(() => {
+                countdown -= 1;
+                if (countdown <= 0) {
+                    hideAppleTimer();
+                } else {
+                    showAppleTimer(countdown);
+                }
+            }, 1000);
+            
+            for (let i = 0; i < appleCount; i++) {
+                setTimeout(() => {
+                    createFallingApple();
+                }, i * interval);
+            }
+            
+            setTimeout(() => {
+                hideAppleTimer();
+            }, 20000);
+        }
 
         // Honger en dorst sneller: elke 8 seconden
         setInterval(() => decreaseBar(fills.food), 8000);

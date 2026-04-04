@@ -19,6 +19,7 @@
             <div class="status action-fruit small"><img src="assets/img/apple.png" alt="Apple"></div>
         </div>
         <div class="corner top-right">
+            <div class="status action-rabbit small"><img src="assets/img/rabbit-sittingright.png" alt="Rabbit"></div>
             <div class="status action-play"><img src="assets/img/toys.png" alt="Play"></div>
         </div>
         <div class="corner bottom-left">
@@ -49,11 +50,15 @@
         });
         document.querySelector('.action-fruit img').addEventListener('click', () => {
             console.log('Clicked fruit');
-            socket.emit('increase-bar', 'food');
+            socket.emit('fall-apples');
         });
         document.querySelector('.action-play img').addEventListener('click', () => {
             console.log('Clicked play');
             socket.emit('increase-bar', 'play');
+        });
+        document.querySelector('.action-rabbit img').addEventListener('click', () => {
+            console.log('Clicked rabbit');
+            socket.emit('increase-all');
         });
         document.querySelector('.action-water img').addEventListener('click', () => {
             console.log('Clicked water');

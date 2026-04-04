@@ -16,7 +16,17 @@ io.on('connection', (socket) => {
 
   socket.on('increase-bar', (bar) => {
     console.log('Received increase-bar for:', bar);
-    socket.broadcast.emit('increase-bar', bar);
+    io.emit('increase-bar', bar);
+  });
+
+  socket.on('increase-all', () => {
+    console.log('Received increase-all');
+    io.emit('increase-all');
+  });
+
+  socket.on('fall-apples', () => {
+    console.log('Received fall-apples');
+    io.emit('fall-apples');
   });
 
   socket.on('disconnect', () => {
