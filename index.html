@@ -52,5 +52,29 @@
     <img src="assets/img/rabbit-sittingright.png" alt="rabbit sitting" id="rabbit-sitting">
 
     <img src="assets/img/grass.png" id="grass" alt="grass">
+
+    <script>
+        const fills = {
+            food: document.querySelector('.track-food .fill'),
+            play: document.querySelector('.track-play .fill'),
+            water: document.querySelector('.track-water .fill'),
+            sleep: document.querySelector('.track-sleep .fill')
+        };
+
+        function decreaseBar(fill, amount = 1) {
+            let current = parseInt(fill.style.width);
+            if (current > 0) {
+                fill.style.width = (current - amount) + '%';
+            }
+        }
+
+        // Honger en dorst sneller: elke 8 seconden
+        setInterval(() => decreaseBar(fills.food), 8000);
+        setInterval(() => decreaseBar(fills.water), 8000);
+
+        // Spelen en slapen langzamer: elke 12 seconden
+        setInterval(() => decreaseBar(fills.play), 12000);
+        setInterval(() => decreaseBar(fills.sleep), 12000);
+    </script>
 </body>
 </html>
