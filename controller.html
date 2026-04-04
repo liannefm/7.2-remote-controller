@@ -6,6 +6,8 @@
 
     <link rel="stylesheet" href="style.css">
 
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
     <title>Tamagotchi
 
     </title>
@@ -35,5 +37,32 @@
             <button class="dpad-btn down" aria-label="Down">↓</button>
         </section>
     </main>
+
+    <script>
+        const socket = io('http://localhost:3000');
+        console.log('Controller connected to socket');
+
+        // Event listeners op de img elementen
+        document.getElementById('carrotfood').addEventListener('click', () => {
+            console.log('Clicked carrot');
+            socket.emit('increase-bar', 'food');
+        });
+        document.querySelector('.action-fruit img').addEventListener('click', () => {
+            console.log('Clicked fruit');
+            socket.emit('increase-bar', 'food');
+        });
+        document.querySelector('.action-play img').addEventListener('click', () => {
+            console.log('Clicked play');
+            socket.emit('increase-bar', 'play');
+        });
+        document.querySelector('.action-water img').addEventListener('click', () => {
+            console.log('Clicked water');
+            socket.emit('increase-bar', 'water');
+        });
+        document.querySelector('.action-sleep img').addEventListener('click', () => {
+            console.log('Clicked sleep');
+            socket.emit('increase-bar', 'sleep');
+        });
+    </script>
 </body>
 </html>

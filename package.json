@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/liannefm/7.2-remote-controller#readme",
   "dependencies": {
-    "express": "^5.2.1",
-    "socket.io": "^4.8.3"
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
   }
 }

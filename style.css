@@ -71,6 +71,80 @@ body {
     transform: translateX(-50%);
 }
 
+/* Mood faces */
+.face.wonderful .eye {
+    width: 16px;
+    height: 16px;
+    background: #000;
+    border-radius: 50%;
+}
+
+.face.wonderful .smile {
+    width: 100px;
+    height: 52px;
+    border-bottom: 7px solid #000;
+    border-radius: 0 0 100px 100px;
+    position: absolute;
+    left: 50%;
+    bottom: 36px;
+    transform: translateX(-50%);
+}
+
+.face.ok .eye {
+    width: 16px;
+    height: 16px;
+    background: #000;
+    border-radius: 50%;
+}
+
+.face.ok .smile {
+    width: 100px;
+    height: 52px;
+    border-bottom: 7px solid #000;
+    border-radius: 0 0 100px 100px;
+    position: absolute;
+    left: 50%;
+    bottom: 36px;
+    transform: translateX(-50%);
+}
+
+.face.sad .eye {
+    width: 12px;
+    height: 12px;
+    background: #000;
+    border-radius: 50%;
+}
+
+.face.sad .smile {
+    width: 80px;
+    height: 4px;
+    background: #000;
+    border-radius: 0;
+    position: absolute;
+    left: 50%;
+    bottom: 40px;
+    transform: translateX(-50%);
+}
+
+.face.angry .eye {
+    width: 8px;
+    height: 2px;
+    background: #000;
+    border-radius: 0;
+}
+
+.face.angry .smile {
+    width: 60px;
+    height: 20px;
+    border: 0;
+    border-top: 4px solid #000;
+    border-radius: 0 0 60px 60px;
+    position: absolute;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+}
+
 h1 {
     font-size: 2rem;
     color: #fff;
@@ -195,6 +269,7 @@ h1 {
 .status img {
     width: 65%;
     height: auto;
+    cursor: pointer;
 }
 
 #carrotfood{

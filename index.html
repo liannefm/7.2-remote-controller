@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <title>Tamagotchi</title>
 </head>
 <body>
@@ -54,6 +55,9 @@
     <img src="assets/img/grass.png" id="grass" alt="grass">
 
     <script>
+        const socket = io('http://localhost:3000');
+        console.log('Index connected to socket');
+
         const fills = {
             food: document.querySelector('.track-food .fill'),
             play: document.querySelector('.track-play .fill'),
@@ -61,12 +65,68 @@
             sleep: document.querySelector('.track-sleep .fill')
         };
 
+        // Load saved values from localStorage
+        Object.keys(fills).forEach(key => {
+            const saved = localStorage.getItem(`tamagotchi-${key}`);
+            if (saved) {
+                fills[key].style.width = saved;
+            }
+        });
+
+        // Update face and text based on average mood
+        function updateMood() {
+            const avg = Object.values(fills).reduce((sum, fill) => sum + parseInt(fill.style.width), 0) / 4;
+            const face = document.querySelector('.face');
+            const h1 = document.querySelector('h1');
+            face.className = 'face'; // reset classes
+            if (avg > 75) {
+                face.classList.add('wonderful');
+                h1.textContent = 'Geweldig!';
+            } else if (avg > 50) {
+                face.classList.add('ok');
+                h1.textContent = 'Prima!';
+            } else if (avg > 25) {
+                face.classList.add('sad');
+                h1.textContent = 'Matig';
+            } else {
+                face.classList.add('angry');
+                h1.textContent = 'Slecht';
+            }
+        }
+
+        // Initial update
+        updateMood();
+
+        // Save current values to localStorage
+        function saveBars() {
+            Object.keys(fills).forEach(key => {
+                localStorage.setItem(`tamagotchi-${key}`, fills[key].style.width);
+            });
+        }
+
         function decreaseBar(fill, amount = 1) {
             let current = parseInt(fill.style.width);
             if (current > 0) {
                 fill.style.width = (current - amount) + '%';
+                saveBars();
+                updateMood();
             }
         }
+
+        function increaseBar(bar) {
+            console.log('Increasing bar:', bar);
+            const fill = fills[bar];
+            let current = parseInt(fill.style.width);
+            if (current < 100) {
+                fill.style.width = Math.min(100, current + 5) + '%';
+                saveBars();
+                updateMood();
+            }
+        }
+
+        socket.on('increase-bar', (bar) => {
+            increaseBar(bar);
+        });
 
         // Honger en dorst sneller: elke 8 seconden
         setInterval(() => decreaseBar(fills.food), 8000);
