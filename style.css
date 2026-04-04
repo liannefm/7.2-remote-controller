@@ -250,11 +250,13 @@ h1 {
 #rabbit-sitting{
     position: fixed;
     bottom: 90px;
+    left: 0;
 
     width: 200px;
     height: 200px;
 
     z-index: 1;
+    transition: left 2s ease-in-out;
 }
 /* einde homescreen */
 

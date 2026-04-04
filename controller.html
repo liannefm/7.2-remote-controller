@@ -40,7 +40,7 @@
     </main>
 
     <script>
-        const socket = io('http://localhost:3000');
+        const socket = io('http://' + window.location.hostname + ':3000');
         console.log('Controller connected to socket');
 
         // Event listeners op de img elementen
@@ -67,6 +67,25 @@
         document.querySelector('.action-sleep img').addEventListener('click', () => {
             console.log('Clicked sleep');
             socket.emit('increase-bar', 'sleep');
+        });
+
+        // D-pad buttons
+        document.querySelector('.dpad-btn.left').addEventListener('mousedown', () => {
+            console.log('Pressed left arrow');
+            socket.emit('start-move-left');
+        });
+        document.querySelector('.dpad-btn.left').addEventListener('mouseup', () => {
+            console.log('Released left arrow');
+            socket.emit('stop-move-left');
+        });
+
+        document.querySelector('.dpad-btn.right').addEventListener('mousedown', () => {
+            console.log('Pressed right arrow');
+            socket.emit('start-move-right');
+        });
+        document.querySelector('.dpad-btn.right').addEventListener('mouseup', () => {
+            console.log('Released right arrow');
+            socket.emit('stop-move-right');
         });
     </script>
 </body>

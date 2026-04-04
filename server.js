@@ -29,6 +29,36 @@ io.on('connection', (socket) => {
     io.emit('fall-apples');
   });
 
+  socket.on('move-left', () => {
+    console.log('Received move-left');
+    io.emit('move-left');
+  });
+
+  socket.on('move-right', () => {
+    console.log('Received move-right');
+    io.emit('move-right');
+  });
+
+  socket.on('start-move-left', () => {
+    console.log('Received start-move-left');
+    io.emit('start-move-left');
+  });
+
+  socket.on('stop-move-left', () => {
+    console.log('Received stop-move-left');
+    io.emit('stop-move-left');
+  });
+
+  socket.on('start-move-right', () => {
+    console.log('Received start-move-right');
+    io.emit('start-move-right');
+  });
+
+  socket.on('stop-move-right', () => {
+    console.log('Received stop-move-right');
+    io.emit('stop-move-right');
+  });
+
   socket.on('disconnect', () => {
     console.log('user disconnected');
   });

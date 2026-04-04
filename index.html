@@ -59,7 +59,7 @@
     <img src="assets/img/grass.png" id="grass" alt="grass">
 
     <script>
-        const socket = io('http://localhost:3000');
+        const socket = io('http://' + window.location.hostname + ':3000');
         console.log('Index connected to socket');
 
         const fills = {
@@ -148,6 +148,92 @@
         socket.on('fall-apples', () => {
             console.log('Apples falling!');
             startAppleFall();
+        });
+
+        const rabbit = document.getElementById('rabbit-sitting');
+        let walkInterval = null;
+        let moveInterval = null;
+        let currentLeft = 0;
+        let direction = 0; // -1 for left, 1 for right, 0 for stop
+
+        socket.on('start-move-left', () => {
+            console.log('Received start-move-left');
+            if (moveInterval) clearInterval(moveInterval);
+            direction = -1;
+            let isRunning = false;
+            moveInterval = setInterval(() => {
+                currentLeft += direction * 5;
+                rabbit.style.left = currentLeft + 'px';
+                rabbit.src = isRunning ? 'assets/img/rabbitsittingleft.png' : 'assets/img/rabbitrunningleft.png';
+                isRunning = !isRunning;
+            }, 150);
+        });
+
+        socket.on('stop-move-left', () => {
+            console.log('Received stop-move-left');
+            if (moveInterval) {
+                clearInterval(moveInterval);
+                moveInterval = null;
+            }
+            rabbit.src = 'assets/img/rabbitsittingleft.png';
+            direction = 0;
+        });
+
+        socket.on('start-move-right', () => {
+            console.log('Received start-move-right');
+            if (moveInterval) clearInterval(moveInterval);
+            direction = 1;
+            let isRunning = false;
+            moveInterval = setInterval(() => {
+                currentLeft += direction * 5;
+                rabbit.style.left = currentLeft + 'px';
+                rabbit.src = isRunning ? 'assets/img/rabbit-sittingright.png' : 'assets/img/rabbitrunningright.png';
+                isRunning = !isRunning;
+            }, 150);
+        });
+
+        socket.on('stop-move-right', () => {
+            console.log('Received stop-move-right');
+            if (moveInterval) {
+                clearInterval(moveInterval);
+                moveInterval = null;
+            }
+            rabbit.src = 'assets/img/rabbit-sittingright.png';
+            direction = 0;
+        });
+
+        socket.on('move-left', () => {
+            console.log('Rabbit moving left');
+            if (walkInterval) clearInterval(walkInterval);
+            currentLeft -= 100;
+            rabbit.style.left = currentLeft + 'px';
+            let isRunning = false;
+            walkInterval = setInterval(() => {
+                rabbit.src = isRunning ? 'assets/img/rabbitsittingleft.png' : 'assets/img/rabbitrunningleft.png';
+                isRunning = !isRunning;
+            }, 300);
+            setTimeout(() => {
+                clearInterval(walkInterval);
+                walkInterval = null;
+                rabbit.src = 'assets/img/rabbitsittingleft.png';
+            }, 2000);
+        });
+
+        socket.on('move-right', () => {
+            console.log('Rabbit moving right');
+            if (walkInterval) clearInterval(walkInterval);
+            currentLeft += 100;
+            rabbit.style.left = currentLeft + 'px';
+            let isRunning = false;
+            walkInterval = setInterval(() => {
+                rabbit.src = isRunning ? 'assets/img/rabbit-sittingright.png' : 'assets/img/rabbitrunningright.png';
+                isRunning = !isRunning;
+            }, 300);
+            setTimeout(() => {
+                clearInterval(walkInterval);
+                walkInterval = null;
+                rabbit.src = 'assets/img/rabbit-sittingright.png';
+            }, 2000);
         });
 
         let appleTimerInterval = null;
