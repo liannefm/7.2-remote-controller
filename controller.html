@@ -35,56 +35,54 @@
                 <button class="dpad-btn left" aria-label="Left">←</button>
                 <button class="dpad-btn right" aria-label="Right">→</button>
             </div>
-            <button class="dpad-btn down" aria-label="Down">↓</button>
+            <!-- <button class="dpad-btn down" aria-label="Down">↓</button> -->
         </section>
     </main>
 
     <script>
-        const socket = io('http://' + window.location.hostname + ':3000');
+        const socket = io('http://localhost:3000');
         console.log('Controller connected to socket');
 
-        // Event listeners op de img elementen
         document.getElementById('carrotfood').addEventListener('click', () => {
-            console.log('Clicked carrot');
             socket.emit('increase-bar', 'food');
         });
         document.querySelector('.action-fruit img').addEventListener('click', () => {
-            console.log('Clicked fruit');
             socket.emit('fall-apples');
         });
         document.querySelector('.action-play img').addEventListener('click', () => {
-            console.log('Clicked play');
             socket.emit('increase-bar', 'play');
         });
         document.querySelector('.action-rabbit img').addEventListener('click', () => {
-            console.log('Clicked rabbit');
             socket.emit('increase-all');
         });
         document.querySelector('.action-water img').addEventListener('click', () => {
-            console.log('Clicked water');
             socket.emit('increase-bar', 'water');
         });
         document.querySelector('.action-sleep img').addEventListener('click', () => {
-            console.log('Clicked sleep');
             socket.emit('increase-bar', 'sleep');
         });
 
-        // D-pad buttons
+        document.querySelector('.dpad-btn.up').addEventListener('click', () => {
+            socket.emit('jump');
+        });
+
         document.querySelector('.dpad-btn.left').addEventListener('mousedown', () => {
-            console.log('Pressed left arrow');
             socket.emit('start-move-left');
         });
         document.querySelector('.dpad-btn.left').addEventListener('mouseup', () => {
-            console.log('Released left arrow');
+            socket.emit('stop-move-left');
+        });
+        document.querySelector('.dpad-btn.left').addEventListener('mouseleave', () => {
             socket.emit('stop-move-left');
         });
 
         document.querySelector('.dpad-btn.right').addEventListener('mousedown', () => {
-            console.log('Pressed right arrow');
             socket.emit('start-move-right');
         });
         document.querySelector('.dpad-btn.right').addEventListener('mouseup', () => {
-            console.log('Released right arrow');
+            socket.emit('stop-move-right');
+        });
+        document.querySelector('.dpad-btn.right').addEventListener('mouseleave', () => {
             socket.emit('stop-move-right');
         });
     </script>

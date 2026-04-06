@@ -50,9 +50,9 @@ body {
 
 #tree {
     position: fixed;
-    right: 359px;
-    bottom: 62px;
-    width: 384px;
+    right: 333px;
+    bottom: 43px;
+    width: 488px;
     height: auto;
 }
 
@@ -60,7 +60,7 @@ body {
     position: fixed;
     top: 30px;
     right: 120px;
-    display: inline-block;
+    touch-action: manipulation;
     color: #000;
     font-family: 'tamagotchi';
     font-size: 1rem;
@@ -256,7 +256,6 @@ h1 {
     height: 200px;
 
     z-index: 1;
-    transition: left 2s ease-in-out;
 }
 /* einde homescreen */
 
@@ -308,6 +307,7 @@ h1 {
     width: 65%;
     height: auto;
     cursor: pointer;
+    touch-action: manipulation;
 }
 
 #carrotfood{
@@ -339,6 +339,7 @@ h1 {
     font-size: 1.8rem;
     font-weight: 700;
     cursor: pointer;
+    touch-action: none;
 }
 
 .dpad-btn:active {
@@ -375,6 +376,7 @@ h1 {
     font-size: 3.7rem;
     font-weight: 700;
     cursor: pointer;
+    touch-action: none;
 }
 
 .dpad-btn:active {

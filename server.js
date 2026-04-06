@@ -59,6 +59,11 @@ io.on('connection', (socket) => {
     io.emit('stop-move-right');
   });
 
+  socket.on('jump', () => {
+    console.log('Received jump');
+    io.emit('jump');
+  });
+
   socket.on('disconnect', () => {
     console.log('user disconnected');
   });

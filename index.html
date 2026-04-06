@@ -59,7 +59,8 @@
     <img src="assets/img/grass.png" id="grass" alt="grass">
 
     <script>
-        const socket = io('http://' + window.location.hostname + ':3000');
+        const socketHost = window.location.hostname || 'localhost';
+        const socket = io('http://' + socketHost + ':3000');
         console.log('Index connected to socket');
 
         const fills = {
@@ -162,11 +163,11 @@
             direction = -1;
             let isRunning = false;
             moveInterval = setInterval(() => {
-                currentLeft += direction * 5;
+                currentLeft += direction * 18;
                 rabbit.style.left = currentLeft + 'px';
                 rabbit.src = isRunning ? 'assets/img/rabbitsittingleft.png' : 'assets/img/rabbitrunningleft.png';
                 isRunning = !isRunning;
-            }, 150);
+            }, 200);
         });
 
         socket.on('stop-move-left', () => {
@@ -185,11 +186,11 @@
             direction = 1;
             let isRunning = false;
             moveInterval = setInterval(() => {
-                currentLeft += direction * 5;
+                currentLeft += direction * 18;
                 rabbit.style.left = currentLeft + 'px';
                 rabbit.src = isRunning ? 'assets/img/rabbit-sittingright.png' : 'assets/img/rabbitrunningright.png';
                 isRunning = !isRunning;
-            }, 150);
+            }, 200);
         });
 
         socket.on('stop-move-right', () => {
@@ -200,6 +201,41 @@
             }
             rabbit.src = 'assets/img/rabbit-sittingright.png';
             direction = 0;
+        });
+
+        let isJumping = false;
+        const groundBottom = 90;
+
+        socket.on('jump', () => {
+            if (isJumping) return;
+            isJumping = true;
+            let currentBottom = groundBottom;
+            let velocity = 12;
+
+            // animatie tijdens sprong richting meeloop
+            let jumpAnim = false;
+            const isLeft = rabbit.src.includes('left');
+            const runSrc = isLeft ? 'assets/img/rabbitrunningleft.png' : 'assets/img/rabbitrunningright.png';
+            const sitSrc = isLeft ? 'assets/img/rabbitsittingleft.png' : 'assets/img/rabbit-sittingright.png';
+
+            const animInterval = setInterval(() => {
+                rabbit.src = jumpAnim ? runSrc : sitSrc;
+                jumpAnim = !jumpAnim;
+            }, 150);
+
+            const jumpInterval = setInterval(() => {
+                currentBottom += velocity;
+                velocity -= 0.5;
+                rabbit.style.bottom = currentBottom + 'px';
+
+                if (currentBottom <= groundBottom && velocity < 0) {
+                    clearInterval(jumpInterval);
+                    clearInterval(animInterval);
+                    rabbit.style.bottom = groundBottom + 'px';
+                    rabbit.src = sitSrc;
+                    isJumping = false;
+                }
+            }, 16);
         });
 
         socket.on('move-left', () => {
@@ -237,6 +273,7 @@
         });
 
         let appleTimerInterval = null;
+        let caughtApples = 0;
 
         function showAppleTimer(seconds) {
             const timer = document.getElementById('apple-timer');
@@ -253,58 +290,59 @@
             }
         }
 
+        function checkCollision(appleEl) {
+            const aRect = appleEl.getBoundingClientRect();
+            const rRect = rabbit.getBoundingClientRect();
+            return (
+                aRect.left < rRect.right &&
+                aRect.right > rRect.left &&
+                aRect.top < rRect.bottom &&
+                aRect.bottom > rRect.top
+            );
+        }
+
         function createFallingApple() {
-            console.log('Creating falling apple');
             const apple = document.createElement('img');
             apple.src = 'assets/img/apple.png';
             apple.style.position = 'fixed';
             apple.style.width = '40px';
             apple.style.height = '40px';
-            apple.style.cursor = 'pointer';
             apple.style.userSelect = 'none';
             apple.style.zIndex = '10';
-            
+            apple.style.pointerEvents = 'none';
+
             const treeElement = document.getElementById('tree');
-            console.log('Tree element:', treeElement);
-            
-            if (!treeElement) {
-                console.error('Tree element not found!');
-                return;
-            }
-            
+            if (!treeElement) return;
+
             const treeRect = treeElement.getBoundingClientRect();
-            console.log('Tree rect:', treeRect);
-            
             const startX = treeRect.left + treeRect.width * 0.45 + Math.random() * (treeRect.width * 0.2) - 20;
             const startY = treeRect.top + treeRect.height * 0.18;
-            
+
             apple.style.left = startX + 'px';
             apple.style.top = startY + 'px';
-            
-            console.log('Apple position:', apple.style.left, apple.style.top);
             document.body.appendChild(apple);
-            
-            apple.addEventListener('click', (e) => {
-                e.stopPropagation();
-                console.log('Apple clicked!');
-                apple.remove();
-                increaseBar('food');
-            });
-            
+
             let currentY = startY;
             const speed = 3;
             const maxY = window.innerHeight - 150;
-            
+            let caught = false;
+
             const fallInterval = setInterval(() => {
                 currentY += speed;
                 apple.style.top = currentY + 'px';
-                
-                if (currentY > maxY) {
+
+                if (!caught && checkCollision(apple)) {
+                    caught = true;
+                    clearInterval(fallInterval);
+                    apple.remove();
+                    caughtApples++;
+                    console.log('Apple caught! Total:', caughtApples);
+                } else if (currentY > maxY) {
                     clearInterval(fallInterval);
                     if (apple.parentNode) apple.remove();
                 }
             }, 30);
-            
+
             setTimeout(() => {
                 clearInterval(fallInterval);
                 if (apple.parentNode) apple.remove();
@@ -313,6 +351,7 @@
         
         function startAppleFall() {
             console.log('Starting apple fall');
+            caughtApples = 0;
             const appleCount = 5;
             const interval = 4000;
             let countdown = 20;
@@ -328,15 +367,19 @@
                     showAppleTimer(countdown);
                 }
             }, 1000);
-            
+
             for (let i = 0; i < appleCount; i++) {
                 setTimeout(() => {
                     createFallingApple();
                 }, i * interval);
             }
-            
+
             setTimeout(() => {
                 hideAppleTimer();
+                console.log('Apples done, caught:', caughtApples);
+                for (let i = 0; i < caughtApples; i++) {
+                    increaseBar('food');
+                }
             }, 20000);
         }
 
