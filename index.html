@@ -58,10 +58,24 @@
 
     <img src="assets/img/grass.png" id="grass" alt="grass">
 
+    <section id="runner-game" class="hidden" aria-live="polite">
+        <div class="runner-hud">
+            <span id="runner-status">Ren door naar de finish!</span>
+            <span id="runner-distance">Finish: 100%</span>
+        </div>
+        <div id="runner-track">
+            <img src="assets/img/rabbitrunningright.png" alt="rennend konijn" id="runner-rabbit">
+            <div id="runner-obstacles"></div>
+            <div id="runner-finish" class="hidden">FINISH</div>
+        </div>
+    </section>
+
     <script>
         const socketHost = window.location.hostname || 'localhost';
         const socket = io('http://' + socketHost + ':3000');
         console.log('Index connected to socket');
+        socket.on('connect', () => console.log('Index socket connected:', socket.id));
+        socket.on('connect_error', (error) => console.error('Index socket error:', error.message));
 
         const fills = {
             food: document.querySelector('.track-food .fill'),
@@ -121,6 +135,7 @@
         function increaseBar(bar) {
             console.log('Increasing bar:', bar);
             const fill = fills[bar];
+            if (!fill) return;
             let current = parseInt(fill.style.width);
             if (current < 100) {
                 fill.style.width = Math.min(100, current + 5) + '%';
@@ -130,6 +145,11 @@
         }
 
         socket.on('increase-bar', (bar) => {
+            if (bar === 'play-game') {
+                console.log('Starting runner mini-game (fallback via increase-bar)');
+                startRunnerGame();
+                return;
+            }
             increaseBar(bar);
         });
 
@@ -152,13 +172,202 @@
         });
 
         const rabbit = document.getElementById('rabbit-sitting');
+        const runnerGame = document.getElementById('runner-game');
+        const runnerTrack = document.getElementById('runner-track');
+        const runnerRabbit = document.getElementById('runner-rabbit');
+        const runnerObstacles = document.getElementById('runner-obstacles');
+        const runnerFinish = document.getElementById('runner-finish');
+        const runnerStatus = document.getElementById('runner-status');
+        const runnerDistance = document.getElementById('runner-distance');
         let walkInterval = null;
         let moveInterval = null;
         let currentLeft = 0;
         let direction = 0; // -1 for left, 1 for right, 0 for stop
+        let isRunnerActive = false;
+        let runnerJumping = false;
+        let runnerRabbitBottom = 40;
+        let runnerVelocity = 0;
+        let runnerFrame = null;
+        let runnerStartTs = 0;
+        let runnerElapsed = 0;
+        let runnerLastTs = 0;
+        let runnerLastSpawnTs = 0;
+        let runnerObstaclesList = [];
+        let runnerFinished = false;
+        const runnerDurationMs = 13000;
+        const runnerGroundBottom = 40;
+        const runnerRabbitLeft = 140;
+
+        function resetRunnerVisuals() {
+            runnerRabbitBottom = runnerGroundBottom;
+            runnerRabbit.style.bottom = runnerRabbitBottom + 'px';
+            runnerRabbit.style.left = runnerRabbitLeft + 'px';
+            runnerRabbit.src = 'assets/img/rabbitrunningright.png';
+            runnerObstacles.innerHTML = '';
+            runnerObstaclesList = [];
+            runnerFinish.classList.add('hidden');
+            runnerFinish.style.left = '100%';
+            runnerStatus.textContent = 'Ren door naar de finish!';
+            runnerDistance.textContent = 'Finish: 100%';
+            runnerFinished = false;
+        }
+
+        function spawnFence() {
+            const fence = document.createElement('img');
+            fence.src = 'assets/img/fence.png';
+            fence.alt = 'hek';
+            fence.className = 'runner-fence';
+            runnerObstacles.appendChild(fence);
+            runnerObstaclesList.push({
+                el: fence,
+                x: runnerTrack.clientWidth + 20,
+                width: 86,
+                height: 80
+            });
+        }
+
+        function startRunnerGame() {
+            if (isRunnerActive) return;
+            isRunnerActive = true;
+            runnerJumping = false;
+            runnerVelocity = 0;
+            resetRunnerVisuals();
+            runnerGame.classList.remove('hidden');
+            runnerStartTs = performance.now();
+            runnerLastTs = runnerStartTs;
+            runnerLastSpawnTs = runnerStartTs;
+            runnerFrame = requestAnimationFrame(updateRunnerGame);
+        }
+
+        function stopRunnerGame(win) {
+            isRunnerActive = false;
+            if (runnerFrame) {
+                cancelAnimationFrame(runnerFrame);
+                runnerFrame = null;
+            }
+
+            if (win) {
+                runnerStatus.textContent = 'Yes! Finish gehaald. Spelen +20';
+                for (let i = 0; i < 4; i++) {
+                    increaseBar('play');
+                }
+            } else {
+                runnerStatus.textContent = 'Botsing met een hek. Probeer opnieuw!';
+            }
+
+            setTimeout(() => {
+                runnerGame.classList.add('hidden');
+                resetRunnerVisuals();
+            }, 1800);
+        }
+
+        function triggerRunnerJump() {
+            if (!isRunnerActive || runnerJumping) return;
+            runnerJumping = true;
+            runnerVelocity = 12;
+        }
+
+        function detectRunnerCollision(fenceData) {
+            const rabbitBox = {
+                left: runnerRabbitLeft + 20,
+                right: runnerRabbitLeft + 82,
+                top: runnerRabbitBottom + 24,
+                bottom: runnerRabbitBottom + 118
+            };
+
+            const fenceBox = {
+                left: fenceData.x + 8,
+                right: fenceData.x + fenceData.width - 8,
+                top: runnerGroundBottom,
+                bottom: runnerGroundBottom + fenceData.height
+            };
+
+            return (
+                rabbitBox.left < fenceBox.right &&
+                rabbitBox.right > fenceBox.left &&
+                rabbitBox.top < fenceBox.bottom &&
+                rabbitBox.bottom > fenceBox.top
+            );
+        }
+
+        function updateRunnerGame(ts) {
+            if (!isRunnerActive) return;
+
+            const delta = ts - runnerLastTs;
+            runnerLastTs = ts;
+            runnerElapsed = ts - runnerStartTs;
+
+            if (runnerElapsed >= runnerDurationMs && !runnerFinished) {
+                runnerFinished = true;
+                runnerFinish.classList.remove('hidden');
+                runnerFinish.style.left = runnerTrack.clientWidth + 10 + 'px';
+            }
+
+            if (!runnerFinished && ts - runnerLastSpawnTs > 1350) {
+                spawnFence();
+                runnerLastSpawnTs = ts;
+            }
+
+            if (runnerJumping) {
+                runnerRabbitBottom += runnerVelocity;
+                runnerVelocity -= 0.55;
+                if (runnerRabbitBottom <= runnerGroundBottom) {
+                    runnerRabbitBottom = runnerGroundBottom;
+                    runnerVelocity = 0;
+                    runnerJumping = false;
+                }
+                runnerRabbit.style.bottom = runnerRabbitBottom + 'px';
+            }
+
+            const speed = 0.35 * delta;
+            runnerObstaclesList = runnerObstaclesList.filter((fenceData) => {
+                fenceData.x -= speed;
+                fenceData.el.style.left = fenceData.x + 'px';
+
+                if (detectRunnerCollision(fenceData)) {
+                    stopRunnerGame(false);
+                    return false;
+                }
+
+                if (fenceData.x < -fenceData.width) {
+                    fenceData.el.remove();
+                    return false;
+                }
+                return true;
+            });
+
+            if (runnerFinished) {
+                const currentLeft = parseFloat(runnerFinish.style.left);
+                runnerFinish.style.left = (currentLeft - speed) + 'px';
+                if (currentLeft <= runnerRabbitLeft + 70) {
+                    stopRunnerGame(true);
+                    return;
+                }
+            } else {
+                const remainingPct = Math.max(0, Math.ceil((1 - runnerElapsed / runnerDurationMs) * 100));
+                runnerDistance.textContent = `Finish: ${remainingPct}%`;
+            }
+
+            runnerRabbit.src = Math.floor(ts / 130) % 2 === 0
+                ? 'assets/img/rabbitrunningright.png'
+                : 'assets/img/rabbit-sittingright.png';
+
+            runnerFrame = requestAnimationFrame(updateRunnerGame);
+        }
+
+        socket.on('start-run-level', () => {
+            console.log('Starting runner mini-game');
+            startRunnerGame();
+        });
+
+        socket.on('startRunLevel', () => {
+            console.log('Starting runner mini-game (camelCase event)');
+            startRunnerGame();
+        });
 
         socket.on('start-move-left', () => {
             console.log('Received start-move-left');
+            if (isRunnerActive) return;
             if (moveInterval) clearInterval(moveInterval);
             direction = -1;
             let isRunning = false;
@@ -172,6 +381,7 @@
 
         socket.on('stop-move-left', () => {
             console.log('Received stop-move-left');
+            if (isRunnerActive) return;
             if (moveInterval) {
                 clearInterval(moveInterval);
                 moveInterval = null;
@@ -182,6 +392,7 @@
 
         socket.on('start-move-right', () => {
             console.log('Received start-move-right');
+            if (isRunnerActive) return;
             if (moveInterval) clearInterval(moveInterval);
             direction = 1;
             let isRunning = false;
@@ -195,6 +406,7 @@
 
         socket.on('stop-move-right', () => {
             console.log('Received stop-move-right');
+            if (isRunnerActive) return;
             if (moveInterval) {
                 clearInterval(moveInterval);
                 moveInterval = null;
@@ -207,6 +419,10 @@
         const groundBottom = 90;
 
         socket.on('jump', () => {
+            if (isRunnerActive) {
+                triggerRunnerJump();
+                return;
+            }
             if (isJumping) return;
             isJumping = true;
             let currentBottom = groundBottom;
@@ -240,6 +456,7 @@
 
         socket.on('move-left', () => {
             console.log('Rabbit moving left');
+            if (isRunnerActive) return;
             if (walkInterval) clearInterval(walkInterval);
             currentLeft -= 100;
             rabbit.style.left = currentLeft + 'px';
@@ -257,6 +474,7 @@
 
         socket.on('move-right', () => {
             console.log('Rabbit moving right');
+            if (isRunnerActive) return;
             if (walkInterval) clearInterval(walkInterval);
             currentLeft += 100;
             rabbit.style.left = currentLeft + 'px';

@@ -29,6 +29,18 @@ io.on('connection', (socket) => {
     io.emit('fall-apples');
   });
 
+  socket.on('start-run-level', () => {
+    console.log('Received start-run-level');
+    io.emit('start-run-level');
+    io.emit('startRunLevel');
+  });
+
+  socket.on('startRunLevel', () => {
+    console.log('Received startRunLevel');
+    io.emit('start-run-level');
+    io.emit('startRunLevel');
+  });
+
   socket.on('move-left', () => {
     console.log('Received move-left');
     io.emit('move-left');

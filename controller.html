@@ -40,27 +40,48 @@
     </main>
 
     <script>
-        const socket = io('http://localhost:3000');
+        const socketHost = window.location.hostname || 'localhost';
+        const socket = io('http://' + socketHost + ':3000');
         console.log('Controller connected to socket');
+        socket.on('connect', () => console.log('Socket connected:', socket.id));
+        socket.on('connect_error', (error) => console.error('Socket error:', error.message));
 
-        document.getElementById('carrotfood').addEventListener('click', () => {
-            socket.emit('increase-bar', 'food');
-        });
-        document.querySelector('.action-fruit img').addEventListener('click', () => {
-            socket.emit('fall-apples');
-        });
-        document.querySelector('.action-play img').addEventListener('click', () => {
-            socket.emit('increase-bar', 'play');
-        });
-        document.querySelector('.action-rabbit img').addEventListener('click', () => {
-            socket.emit('increase-all');
-        });
-        document.querySelector('.action-water img').addEventListener('click', () => {
-            socket.emit('increase-bar', 'water');
-        });
-        document.querySelector('.action-sleep img').addEventListener('click', () => {
-            socket.emit('increase-bar', 'sleep');
-        });
+        function handleActionPress(event) {
+            const actionEl = event.target.closest('.status');
+            if (!actionEl) return;
+
+            if (actionEl.classList.contains('action-food')) {
+                socket.emit('increase-bar', 'food');
+                return;
+            }
+            if (actionEl.classList.contains('action-fruit')) {
+                socket.emit('fall-apples');
+                return;
+            }
+            if (actionEl.classList.contains('action-play')) {
+                console.log('Emit: increase-bar play');
+                socket.emit('increase-bar', 'play');
+                return;
+            }
+            if (actionEl.classList.contains('action-rabbit')) {
+                console.log('Emit: start-run-level');
+                socket.emit('start-run-level');
+                socket.emit('startRunLevel');
+                socket.emit('increase-bar', 'play-game');
+                return;
+            }
+            if (actionEl.classList.contains('action-water')) {
+                socket.emit('increase-bar', 'water');
+                return;
+            }
+            if (actionEl.classList.contains('action-sleep')) {
+                socket.emit('increase-bar', 'sleep');
+            }
+        }
+
+        const controllerScreen = document.querySelector('.controller-screen');
+        controllerScreen.addEventListener('click', handleActionPress);
+        controllerScreen.addEventListener('touchstart', handleActionPress, { passive: true });
 
         document.querySelector('.dpad-btn.up').addEventListener('click', () => {
             socket.emit('jump');
