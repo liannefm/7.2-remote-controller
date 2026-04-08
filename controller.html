@@ -37,6 +37,9 @@
             </div>
             <!-- <button class="dpad-btn down" aria-label="Down">↓</button> -->
         </section>
+        <div id="controller-death-overlay" class="hidden">
+            <button id="controller-respawn-btn">Opnieuw beginnen</button>
+        </div>
     </main>
 
     <script>
@@ -46,9 +49,20 @@
         socket.on('connect', () => console.log('Socket connected:', socket.id));
         socket.on('connect_error', (error) => console.error('Socket error:', error.message));
 
+        // Detect touch device to prevent double-firing (touch + click)
+        let usesTouch = false;
+        window.addEventListener('touchstart', () => { usesTouch = true; }, { once: true });
+
         function handleActionPress(event) {
+            // On touch devices, ignore click events (touchstart already handled it)
+            if (usesTouch && event.type === 'click') return;
+
             const actionEl = event.target.closest('.status');
             if (!actionEl) return;
+
+            // Visual feedback
+            actionEl.classList.add('pressed');
+            setTimeout(() => actionEl.classList.remove('pressed'), 200);
 
             if (actionEl.classList.contains('action-food')) {
                 socket.emit('increase-bar', 'food');
@@ -59,15 +73,11 @@
                 return;
             }
             if (actionEl.classList.contains('action-play')) {
-                console.log('Emit: increase-bar play');
                 socket.emit('increase-bar', 'play');
                 return;
             }
             if (actionEl.classList.contains('action-rabbit')) {
-                console.log('Emit: start-run-level');
                 socket.emit('start-run-level');
-                socket.emit('startRunLevel');
-                socket.emit('increase-bar', 'play-game');
                 return;
             }
             if (actionEl.classList.contains('action-water')) {
@@ -83,28 +93,78 @@
         controllerScreen.addEventListener('click', handleActionPress);
         controllerScreen.addEventListener('touchstart', handleActionPress, { passive: true });
 
-        document.querySelector('.dpad-btn.up').addEventListener('click', () => {
+        // D-pad: jump
+        const btnUp = document.querySelector('.dpad-btn.up');
+        btnUp.addEventListener('touchstart', (e) => {
+            e.preventDefault();
             socket.emit('jump');
+        }, { passive: false });
+        btnUp.addEventListener('click', () => {
+            if (!usesTouch) socket.emit('jump');
         });
 
-        document.querySelector('.dpad-btn.left').addEventListener('mousedown', () => {
+        // D-pad: left
+        const btnLeft = document.querySelector('.dpad-btn.left');
+        btnLeft.addEventListener('touchstart', (e) => {
+            e.preventDefault();
             socket.emit('start-move-left');
-        });
-        document.querySelector('.dpad-btn.left').addEventListener('mouseup', () => {
+        }, { passive: false });
+        btnLeft.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            socket.emit('stop-move-left');
+        }, { passive: false });
+        btnLeft.addEventListener('touchcancel', () => {
             socket.emit('stop-move-left');
         });
-        document.querySelector('.dpad-btn.left').addEventListener('mouseleave', () => {
-            socket.emit('stop-move-left');
+        btnLeft.addEventListener('mousedown', () => {
+            if (!usesTouch) socket.emit('start-move-left');
+        });
+        btnLeft.addEventListener('mouseup', () => {
+            if (!usesTouch) socket.emit('stop-move-left');
+        });
+        btnLeft.addEventListener('mouseleave', () => {
+            if (!usesTouch) socket.emit('stop-move-left');
         });
 
-        document.querySelector('.dpad-btn.right').addEventListener('mousedown', () => {
+        // D-pad: right
+        const btnRight = document.querySelector('.dpad-btn.right');
+        btnRight.addEventListener('touchstart', (e) => {
+            e.preventDefault();
             socket.emit('start-move-right');
-        });
-        document.querySelector('.dpad-btn.right').addEventListener('mouseup', () => {
+        }, { passive: false });
+        btnRight.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            socket.emit('stop-move-right');
+        }, { passive: false });
+        btnRight.addEventListener('touchcancel', () => {
             socket.emit('stop-move-right');
         });
-        document.querySelector('.dpad-btn.right').addEventListener('mouseleave', () => {
-            socket.emit('stop-move-right');
+        btnRight.addEventListener('mousedown', () => {
+            if (!usesTouch) socket.emit('start-move-right');
+        });
+        btnRight.addEventListener('mouseup', () => {
+            if (!usesTouch) socket.emit('stop-move-right');
+        });
+        btnRight.addEventListener('mouseleave', () => {
+            if (!usesTouch) socket.emit('stop-move-right');
+        });
+
+        // Death / respawn
+        socket.on('rabbit-died', () => {
+            document.getElementById('controller-death-overlay').classList.remove('hidden');
+        });
+
+        socket.on('rabbit-respawned', () => {
+            document.getElementById('controller-death-overlay').classList.add('hidden');
+        });
+
+        const respawnBtn = document.getElementById('controller-respawn-btn');
+        respawnBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            socket.emit('respawn-rabbit');
+        }, { passive: false });
+        respawnBtn.addEventListener('click', () => {
+            if (!usesTouch) socket.emit('respawn-rabbit');
         });
     </script>
 </body>

@@ -32,13 +32,6 @@ io.on('connection', (socket) => {
   socket.on('start-run-level', () => {
     console.log('Received start-run-level');
     io.emit('start-run-level');
-    io.emit('startRunLevel');
-  });
-
-  socket.on('startRunLevel', () => {
-    console.log('Received startRunLevel');
-    io.emit('start-run-level');
-    io.emit('startRunLevel');
   });
 
   socket.on('move-left', () => {
@@ -74,6 +67,21 @@ io.on('connection', (socket) => {
   socket.on('jump', () => {
     console.log('Received jump');
     io.emit('jump');
+  });
+
+  socket.on('rabbit-died', () => {
+    console.log('Received rabbit-died');
+    io.emit('rabbit-died');
+  });
+
+  socket.on('rabbit-respawned', () => {
+    console.log('Received rabbit-respawned');
+    io.emit('rabbit-respawned');
+  });
+
+  socket.on('respawn-rabbit', () => {
+    console.log('Received respawn-rabbit');
+    io.emit('respawn-rabbit');
   });
 
   socket.on('disconnect', () => {

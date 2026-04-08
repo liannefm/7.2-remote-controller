@@ -58,17 +58,17 @@
 
     <img src="assets/img/grass.png" id="grass" alt="grass">
 
-    <section id="runner-game" class="hidden" aria-live="polite">
-        <div class="runner-hud">
-            <span id="runner-status">Ren door naar de finish!</span>
-            <span id="runner-distance">Finish: 100%</span>
+    <div id="game-obstacles" class="hidden"></div>
+    <div id="game-hud" class="hidden">
+        <span id="runner-distance">Finish: 100%</span>
+    </div>
+
+    <div id="death-overlay" class="hidden">
+        <div class="death-content">
+            <h2>Je konijn is dood...</h2>
+            <button id="respawn-btn">Opnieuw beginnen</button>
         </div>
-        <div id="runner-track">
-            <img src="assets/img/rabbitrunningright.png" alt="rennend konijn" id="runner-rabbit">
-            <div id="runner-obstacles"></div>
-            <div id="runner-finish" class="hidden">FINISH</div>
-        </div>
-    </section>
+    </div>
 
     <script>
         const socketHost = window.location.hostname || 'localhost';
@@ -76,6 +76,9 @@
         console.log('Index connected to socket');
         socket.on('connect', () => console.log('Index socket connected:', socket.id));
         socket.on('connect_error', (error) => console.error('Index socket error:', error.message));
+
+        let isDead = false;
+        const decayIntervals = [];
 
         const fills = {
             food: document.querySelector('.track-food .fill'),
@@ -123,16 +126,102 @@
             });
         }
 
+        function checkDeath() {
+            if (isDead) return;
+            const allZero = Object.values(fills).every(fill => parseInt(fill.style.width) <= 0);
+            if (allZero) triggerDeath();
+        }
+
+        function triggerDeath() {
+            isDead = true;
+
+            // Stop alle decay intervals
+            decayIntervals.forEach(id => clearInterval(id));
+            decayIntervals.length = 0;
+
+            // Stop lopende bewegingen
+            if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
+            if (walkInterval) { clearInterval(walkInterval); walkInterval = null; }
+            direction = 0;
+
+            // Stop runner minigame als die actief is
+            if (isRunnerActive) {
+                if (runnerFrame) { cancelAnimationFrame(runnerFrame); runnerFrame = null; }
+                isRunnerActive = false;
+                gameObstacles.classList.add('hidden');
+                gameHud.classList.add('hidden');
+                resetRunnerVisuals();
+            }
+
+            // Visueel: konijn kantelt, dead face
+            rabbit.style.transform = 'rotate(180deg)';
+            const face = document.querySelector('.face');
+            face.className = 'face dead';
+            document.querySelector('h1').textContent = 'Dood!';
+
+            // Toon death overlay
+            document.getElementById('death-overlay').classList.remove('hidden');
+
+            // Wis localStorage
+            localStorage.removeItem('tamagotchi-food');
+            localStorage.removeItem('tamagotchi-play');
+            localStorage.removeItem('tamagotchi-water');
+            localStorage.removeItem('tamagotchi-sleep');
+
+            socket.emit('rabbit-died');
+        }
+
+        function respawnRabbit() {
+            // Reset bars
+            fills.food.style.width = '80%';
+            fills.play.style.width = '65%';
+            fills.water.style.width = '55%';
+            fills.sleep.style.width = '45%';
+            saveBars();
+
+            // Reset konijn visueel
+            rabbit.style.transform = '';
+            rabbit.src = 'assets/img/rabbit-sittingright.png';
+            rabbit.style.left = '0px';
+            rabbit.style.bottom = '90px';
+            currentLeft = 0;
+
+            // Herleef
+            isDead = false;
+            updateMood();
+
+            // Verberg overlay
+            document.getElementById('death-overlay').classList.add('hidden');
+
+            // Herstart decay intervals
+            startDecayIntervals();
+
+            socket.emit('rabbit-respawned');
+        }
+
+        document.getElementById('respawn-btn').addEventListener('click', respawnRabbit);
+
+        function startDecayIntervals() {
+            decayIntervals.length = 0;
+            decayIntervals.push(setInterval(() => decreaseBar(fills.food), 8000));
+            decayIntervals.push(setInterval(() => decreaseBar(fills.water), 8000));
+            decayIntervals.push(setInterval(() => decreaseBar(fills.play), 12000));
+            decayIntervals.push(setInterval(() => decreaseBar(fills.sleep), 12000));
+        }
+
         function decreaseBar(fill, amount = 1) {
+            if (isDead) return;
             let current = parseInt(fill.style.width);
             if (current > 0) {
                 fill.style.width = (current - amount) + '%';
                 saveBars();
                 updateMood();
             }
+            checkDeath();
         }
 
         function increaseBar(bar) {
+            if (isDead) return;
             console.log('Increasing bar:', bar);
             const fill = fills[bar];
             if (!fill) return;
@@ -145,15 +234,12 @@
         }
 
         socket.on('increase-bar', (bar) => {
-            if (bar === 'play-game') {
-                console.log('Starting runner mini-game (fallback via increase-bar)');
-                startRunnerGame();
-                return;
-            }
+            if (isDead) return;
             increaseBar(bar);
         });
 
         socket.on('increase-all', () => {
+            if (isDead) return;
             console.log('Increasing all bars');
             Object.keys(fills).forEach(key => {
                 const fill = fills[key];
@@ -167,17 +253,15 @@
         });
 
         socket.on('fall-apples', () => {
+            if (isDead) return;
             console.log('Apples falling!');
             startAppleFall();
         });
 
         const rabbit = document.getElementById('rabbit-sitting');
-        const runnerGame = document.getElementById('runner-game');
-        const runnerTrack = document.getElementById('runner-track');
-        const runnerRabbit = document.getElementById('runner-rabbit');
-        const runnerObstacles = document.getElementById('runner-obstacles');
-        const runnerFinish = document.getElementById('runner-finish');
-        const runnerStatus = document.getElementById('runner-status');
+        const gameObstacles = document.getElementById('game-obstacles');
+        const gameHud = document.getElementById('game-hud');
+        const runnerObstacles = gameObstacles;
         const runnerDistance = document.getElementById('runner-distance');
         let walkInterval = null;
         let moveInterval = null;
@@ -185,7 +269,7 @@
         let direction = 0; // -1 for left, 1 for right, 0 for stop
         let isRunnerActive = false;
         let runnerJumping = false;
-        let runnerRabbitBottom = 40;
+        let runnerRabbitBottom = 90;
         let runnerVelocity = 0;
         let runnerFrame = null;
         let runnerStartTs = 0;
@@ -194,22 +278,38 @@
         let runnerLastSpawnTs = 0;
         let runnerObstaclesList = [];
         let runnerFinished = false;
+        let runnerNextSpawnDelay = 1400;
+        let finishFlag = null;
+        let finishFlagX = 0;
+        let finishSpawned = false;
         const runnerDurationMs = 13000;
-        const runnerGroundBottom = 40;
-        const runnerRabbitLeft = 140;
+        const runnerGroundBottom = 90;
+
+        let savedLeft = 0; // bewaar positie voor na de game
 
         function resetRunnerVisuals() {
             runnerRabbitBottom = runnerGroundBottom;
-            runnerRabbit.style.bottom = runnerRabbitBottom + 'px';
-            runnerRabbit.style.left = runnerRabbitLeft + 'px';
-            runnerRabbit.src = 'assets/img/rabbitrunningright.png';
+            rabbit.style.bottom = runnerRabbitBottom + 'px';
+            rabbit.src = 'assets/img/rabbit-sittingright.png';
             runnerObstacles.innerHTML = '';
             runnerObstaclesList = [];
-            runnerFinish.classList.add('hidden');
-            runnerFinish.style.left = '100%';
-            runnerStatus.textContent = 'Ren door naar de finish!';
             runnerDistance.textContent = 'Finish: 100%';
             runnerFinished = false;
+            finishFlag = null;
+            finishSpawned = false;
+        }
+
+        function spawnFinishFlag() {
+            const pole = document.createElement('div');
+            pole.className = 'runner-finish';
+            const flag = document.createElement('div');
+            flag.className = 'runner-finish-flag';
+            pole.appendChild(flag);
+            runnerObstacles.appendChild(pole);
+            finishFlagX = window.innerWidth + 20;
+            pole.style.left = finishFlagX + 'px';
+            finishFlag = pole;
+            finishSpawned = true;
         }
 
         function spawnFence() {
@@ -220,7 +320,7 @@
             runnerObstacles.appendChild(fence);
             runnerObstaclesList.push({
                 el: fence,
-                x: runnerTrack.clientWidth + 20,
+                x: window.innerWidth + 20,
                 width: 86,
                 height: 80
             });
@@ -231,11 +331,26 @@
             isRunnerActive = true;
             runnerJumping = false;
             runnerVelocity = 0;
+
+            // Bewaar huidige positie en zet konijn op startpositie
+            savedLeft = currentLeft;
+            currentLeft = 50;
+            rabbit.style.left = currentLeft + 'px';
+
+            // Stop lopende bewegingen
+            if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
+            if (walkInterval) { clearInterval(walkInterval); walkInterval = null; }
+            direction = 0;
+
             resetRunnerVisuals();
-            runnerGame.classList.remove('hidden');
+            rabbit.src = 'assets/img/rabbitrunningright.png';
+            rabbit.style.zIndex = '5';
+            gameObstacles.classList.remove('hidden');
+            gameHud.classList.remove('hidden');
             runnerStartTs = performance.now();
             runnerLastTs = runnerStartTs;
             runnerLastSpawnTs = runnerStartTs;
+            runnerNextSpawnDelay = 1400;
             runnerFrame = requestAnimationFrame(updateRunnerGame);
         }
 
@@ -247,46 +362,48 @@
             }
 
             if (win) {
-                runnerStatus.textContent = 'Yes! Finish gehaald. Spelen +20';
+                runnerDistance.textContent = 'Finish gehaald! +20 spelen';
                 for (let i = 0; i < 4; i++) {
                     increaseBar('play');
                 }
             } else {
-                runnerStatus.textContent = 'Botsing met een hek. Probeer opnieuw!';
+                runnerDistance.textContent = 'Botsing! Probeer opnieuw';
             }
 
             setTimeout(() => {
-                runnerGame.classList.add('hidden');
+                gameObstacles.classList.add('hidden');
+                gameHud.classList.add('hidden');
+                rabbit.style.zIndex = '1';
                 resetRunnerVisuals();
+                // Herstel positie van voor de game
+                currentLeft = savedLeft;
+                rabbit.style.left = currentLeft + 'px';
             }, 1800);
         }
 
         function triggerRunnerJump() {
             if (!isRunnerActive || runnerJumping) return;
             runnerJumping = true;
-            runnerVelocity = 12;
+            runnerVelocity = 1.0; // pixels per ms upward → max hoogte ~250px, lekker hoog over hek
         }
 
         function detectRunnerCollision(fenceData) {
-            const rabbitBox = {
-                left: runnerRabbitLeft + 20,
-                right: runnerRabbitLeft + 82,
-                top: runnerRabbitBottom + 24,
-                bottom: runnerRabbitBottom + 118
-            };
+            // Alleen de voetjes van het konijn tellen als hitbox
+            const rabbitHitLeft = currentLeft + 70;
+            const rabbitHitRight = currentLeft + 145;
+            const rabbitFeetBottom = runnerRabbitBottom;
+            const rabbitFeetTop = runnerRabbitBottom + 40; // alleen onderste 40px (voeten)
 
-            const fenceBox = {
-                left: fenceData.x + 8,
-                right: fenceData.x + fenceData.width - 8,
-                top: runnerGroundBottom,
-                bottom: runnerGroundBottom + fenceData.height
-            };
+            const fenceLeft = fenceData.x + 12;
+            const fenceRight = fenceData.x + fenceData.width - 12;
+            const fenceTop = runnerGroundBottom + fenceData.height;
 
+            // Botsing alleen als de voeten lager zijn dan de bovenkant van het hek
             return (
-                rabbitBox.left < fenceBox.right &&
-                rabbitBox.right > fenceBox.left &&
-                rabbitBox.top < fenceBox.bottom &&
-                rabbitBox.bottom > fenceBox.top
+                rabbitHitLeft < fenceRight &&
+                rabbitHitRight > fenceLeft &&
+                rabbitFeetBottom < fenceTop &&
+                rabbitFeetTop > runnerGroundBottom
             );
         }
 
@@ -297,26 +414,28 @@
             runnerLastTs = ts;
             runnerElapsed = ts - runnerStartTs;
 
-            if (runnerElapsed >= runnerDurationMs && !runnerFinished) {
-                runnerFinished = true;
-                runnerFinish.classList.remove('hidden');
-                runnerFinish.style.left = runnerTrack.clientWidth + 10 + 'px';
+            // Spawn finish vlag 2.5s voor het einde
+            if (!finishSpawned && runnerElapsed >= runnerDurationMs - 2500) {
+                spawnFinishFlag();
             }
 
-            if (!runnerFinished && ts - runnerLastSpawnTs > 1350) {
+            // Spawn hekjes met variabel interval, stop met spawnen als finish vlag er al is
+            if (!finishSpawned && ts - runnerLastSpawnTs > runnerNextSpawnDelay) {
                 spawnFence();
                 runnerLastSpawnTs = ts;
+                runnerNextSpawnDelay = 1400 + Math.random() * 800;
             }
 
             if (runnerJumping) {
-                runnerRabbitBottom += runnerVelocity;
-                runnerVelocity -= 0.55;
+                const gravity = 0.002; // pixels per ms^2 — snappy feel
+                runnerRabbitBottom += runnerVelocity * delta;
+                runnerVelocity -= gravity * delta;
                 if (runnerRabbitBottom <= runnerGroundBottom) {
                     runnerRabbitBottom = runnerGroundBottom;
                     runnerVelocity = 0;
                     runnerJumping = false;
                 }
-                runnerRabbit.style.bottom = runnerRabbitBottom + 'px';
+                rabbit.style.bottom = runnerRabbitBottom + 'px';
             }
 
             const speed = 0.35 * delta;
@@ -336,36 +455,41 @@
                 return true;
             });
 
-            if (runnerFinished) {
-                const currentLeft = parseFloat(runnerFinish.style.left);
-                runnerFinish.style.left = (currentLeft - speed) + 'px';
-                if (currentLeft <= runnerRabbitLeft + 70) {
+            // Beweeg finish vlag mee en check of konijn de finish bereikt
+            if (finishFlag) {
+                finishFlagX -= speed;
+                finishFlag.style.left = finishFlagX + 'px';
+
+                // Gewonnen als de vlag het konijn bereikt
+                if (finishFlagX <= currentLeft + 140 && !runnerFinished) {
+                    runnerFinished = true;
                     stopRunnerGame(true);
                     return;
                 }
-            } else {
-                const remainingPct = Math.max(0, Math.ceil((1 - runnerElapsed / runnerDurationMs) * 100));
-                runnerDistance.textContent = `Finish: ${remainingPct}%`;
             }
 
-            runnerRabbit.src = Math.floor(ts / 130) % 2 === 0
-                ? 'assets/img/rabbitrunningright.png'
-                : 'assets/img/rabbit-sittingright.png';
+            const remainingPct = Math.max(0, Math.ceil((1 - runnerElapsed / runnerDurationMs) * 100));
+            runnerDistance.textContent = `Finish: ${remainingPct}%`;
 
+            // Running animation: wissel tussen ren en zit sprite (zoals bij lopen)
+            if (!runnerJumping) {
+                rabbit.src = Math.floor(ts / 180) % 2 === 0
+                    ? 'assets/img/rabbitrunningright.png'
+                    : 'assets/img/rabbit-sittingright.png';
+            } else {
+                rabbit.src = 'assets/img/rabbitrunningright.png';
+            }
             runnerFrame = requestAnimationFrame(updateRunnerGame);
         }
 
         socket.on('start-run-level', () => {
+            if (isDead) return;
             console.log('Starting runner mini-game');
             startRunnerGame();
         });
 
-        socket.on('startRunLevel', () => {
-            console.log('Starting runner mini-game (camelCase event)');
-            startRunnerGame();
-        });
-
         socket.on('start-move-left', () => {
+            if (isDead) return;
             console.log('Received start-move-left');
             if (isRunnerActive) return;
             if (moveInterval) clearInterval(moveInterval);
@@ -380,6 +504,7 @@
         });
 
         socket.on('stop-move-left', () => {
+            if (isDead) return;
             console.log('Received stop-move-left');
             if (isRunnerActive) return;
             if (moveInterval) {
@@ -391,6 +516,7 @@
         });
 
         socket.on('start-move-right', () => {
+            if (isDead) return;
             console.log('Received start-move-right');
             if (isRunnerActive) return;
             if (moveInterval) clearInterval(moveInterval);
@@ -405,6 +531,7 @@
         });
 
         socket.on('stop-move-right', () => {
+            if (isDead) return;
             console.log('Received stop-move-right');
             if (isRunnerActive) return;
             if (moveInterval) {
@@ -419,6 +546,7 @@
         const groundBottom = 90;
 
         socket.on('jump', () => {
+            if (isDead) return;
             if (isRunnerActive) {
                 triggerRunnerJump();
                 return;
@@ -455,6 +583,7 @@
         });
 
         socket.on('move-left', () => {
+            if (isDead) return;
             console.log('Rabbit moving left');
             if (isRunnerActive) return;
             if (walkInterval) clearInterval(walkInterval);
@@ -473,6 +602,7 @@
         });
 
         socket.on('move-right', () => {
+            if (isDead) return;
             console.log('Rabbit moving right');
             if (isRunnerActive) return;
             if (walkInterval) clearInterval(walkInterval);
@@ -601,13 +731,13 @@
             }, 20000);
         }
 
-        // Honger en dorst sneller: elke 8 seconden
-        setInterval(() => decreaseBar(fills.food), 8000);
-        setInterval(() => decreaseBar(fills.water), 8000);
+        // Start decay intervals
+        startDecayIntervals();
 
-        // Spelen en slapen langzamer: elke 12 seconden
-        setInterval(() => decreaseBar(fills.play), 12000);
-        setInterval(() => decreaseBar(fills.sleep), 12000);
+        // Respawn vanuit controller
+        socket.on('respawn-rabbit', () => {
+            if (isDead) respawnRabbit();
+        });
     </script>
 </body>
 </html>
